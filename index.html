@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SENTINEL FLL - Sistema Arqueológico</title>
+    <title>SENTINEL FLL</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;700;800&display=swap');
         * { margin:0; padding:0; box-sizing:border-box; }
@@ -48,7 +48,7 @@
         .gc .sicon { background:rgba(255,109,0,0.08); }
         .stitle h2 { font-size:0.75em; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:var(--accent,var(--cyan)); font-family:var(--mono); }
         .vrow { display:flex; align-items:baseline; gap:6px; margin-bottom:16px; }
-        .vbig { font-family:var(--mono); font-size:3em; font-weight:400; color:#fff; line-height:1; min-width:4ch; transition:color .3s; }
+        .vbig { font-family:var(--mono); font-size:3em; font-weight:400; color:#fff; line-height:1; min-width:3ch; transition:color .3s; }
         .vbig.warn { color:var(--orange); }
         .vbig.alrt { color:var(--red); }
         .vunit { font-family:var(--mono); font-size:0.85em; color:rgba(200,230,255,0.35); }
@@ -56,7 +56,8 @@
         .mlabels .thr { color:rgba(255,255,255,0.5); }
         .mtrack { height:11px; background:rgba(255,255,255,0.06); border-radius:6px; overflow:visible; position:relative; margin-bottom:12px; }
         .mfill { height:100%; border-radius:6px; transition:width .4s cubic-bezier(.4,0,.2,1); position:absolute; top:0; left:0; }
-        .mfill-s { background:linear-gradient(90deg,#ff1744 0%,#ff9800 40%,#00e5ff 100%); }
+        /* KY-037 invertido: llena=ruido (valor bajo → barra alta), vacía=silencio */
+        .mfill-s { background:linear-gradient(90deg,#00e5ff 0%,#ff9800 60%,#ff1744 100%); }
         .mfill-g { background:linear-gradient(90deg,#00e676 0%,#ff6d00 55%,#ff1744 100%); }
         .mline { position:absolute; top:-3px; bottom:-3px; width:2px; background:rgba(255,255,255,0.5); border-radius:2px; }
         .sbadge { display:inline-flex; align-items:center; gap:6px; font-family:var(--mono); font-size:0.75em; letter-spacing:1.5px; padding:4px 11px; border-radius:5px; border:1px solid; transition:all .3s; }
@@ -103,9 +104,8 @@
 </head>
 <body>
 <div class="wrap">
-
     <header>
-        <div class="badge">SISTEMA DE VIGILANCIA v2.3</div>
+        <div class="badge">SISTEMA DE VIGILANCIA v2.4</div>
         <h1>SENTINEL <span>FLL</span></h1>
         <p class="sub">Protección inteligente de sitios arqueológicos · KY-037 (A0) + MQ-2 (A1)</p>
     </header>
@@ -120,6 +120,7 @@
     </div>
 
     <div class="grid2">
+        <!-- KY-037: rango 0-120, 120=silencio, baja=más ruido, alerta si baja de 80 -->
         <div class="scard" id="cS">
             <div class="stitle">
                 <div class="sicon">🎤</div>
@@ -127,20 +128,22 @@
             </div>
             <div class="vrow">
                 <div class="vbig" id="sVal">—</div>
-                <div class="vunit">/ 1023</div>
+                <div class="vunit">/ 120</div>
             </div>
             <div class="mlabels">
-                <span>ruido</span>
-                <span class="thr">⚠ &lt;1015</span>
-                <span>silencio</span>
+                <span>0 ruido</span>
+                <span class="thr">⚠ &lt;80</span>
+                <span>120 silencio</span>
             </div>
             <div class="mtrack">
+                <!-- Barra invertida: valor bajo → barra llena (más rojo) -->
                 <div class="mfill mfill-s" id="sFill" style="width:0%"></div>
-                <div class="mline" style="left:99.2%"></div>
+                <div class="mline" style="left:66.6%"></div>
             </div>
             <div class="sbadge b-ok" id="sBadge"><span class="bdot"></span>ESPERANDO</div>
         </div>
 
+        <!-- MQ-2: rango 0-1023, sube = más gas, alerta si sube de 100 -->
         <div class="scard gc" id="cG">
             <div class="stitle">
                 <div class="sicon">💨</div>
@@ -212,12 +215,16 @@ const acntEl=$('acnt'), logEl=$('log');
 
 let port=null, reader=null, writer=null;
 let simActive=false, simInterval=null, alertTmo=null;
-let alertCount=0, lastS=1023, lastG=0;
+let alertCount=0, lastS=120, lastG=0;
 
-const MAX_PTS=40;
+const MAX_PTS = 40;
 const labH=[], sH=[], gH=[];
-const TUMB_S = 1015;
+
+// KY-037: rango 0-120, alerta si BAJA de 80 (menos valor = más ruido)
+// MQ-2:   rango 0-1023, alerta si SUBE de 100
+const TUMB_S = 80;
 const TUMB_G = 100;
+const MAX_S  = 120;
 
 function pad(n){ return String(n).padStart(2,'0'); }
 
@@ -247,7 +254,7 @@ resizeCanvases();
 function drawCanvas(ctx, data, color, fillColor, thrVal, thrLabel, yMin, yMax){
     const W=ctx.canvas.width, H=ctx.canvas.height;
     ctx.clearRect(0,0,W,H);
-    const PL=44, PR=14, PT=16, PB=30;
+    const PL=38, PR=14, PT=16, PB=30;
     const cW=W-PL-PR, cH=H-PT-PB;
     const range=yMax-yMin;
     for(let i=0;i<=4;i++){
@@ -307,10 +314,11 @@ function drawCanvas(ctx, data, color, fillColor, thrVal, thrLabel, yMin, yMax){
 }
 
 function drawChartS(){
-    drawCanvas(ctxS, sH, '#00e5ff', 'rgba(0,229,255,0.07)', TUMB_S, '⚠ 1015', 900, 1023);
+    // KY-037: 0=ruido máximo, 120=silencio total, umbral en 80
+    drawCanvas(ctxS, sH, '#00e5ff', 'rgba(0,229,255,0.07)', TUMB_S, '⚠ 80', 0, MAX_S);
 }
 function drawChartG(){
-    const maxG=Math.max(100,...gH)*1.2;
+    const maxG=Math.max(200,...gH)*1.1;
     drawCanvas(ctxG, gH, '#ff6d00', 'rgba(255,109,0,0.07)', TUMB_G, '⚠ 100', 0, maxG);
 }
 
@@ -323,22 +331,34 @@ function pushChart(s,g){
 }
 
 function update(s,g){
-    s=Math.max(0,Math.min(1023,Math.round(s)));
+    // KY-037: clamp 0-120
+    s=Math.max(0,Math.min(MAX_S,Math.round(s)));
+    // MQ-2: clamp 0-1023
     g=Math.max(0,Math.min(1023,Math.round(g)));
     lastS=s; lastG=g;
+
     sValEl.textContent=s;
     gValEl.textContent=g;
-    sValEl.className='vbig'+(s<TUMB_S?' alrt':s<1018?' warn':'');
-    gValEl.className='vbig'+(g>TUMB_G?' alrt':g>(TUMB_G-5)?' warn':'');
-    sFillEl.style.width=((s/1023)*100).toFixed(2)+'%';
+
+    // KY-037: alerta si BAJA de 80 (menos = más ruido)
+    sValEl.className='vbig'+(s<TUMB_S?' alrt':s<(TUMB_S+10)?' warn':'');
+    gValEl.className='vbig'+(g>TUMB_G?' alrt':g>(TUMB_G-10)?' warn':'');
+
+    // Barra KY-037 INVERTIDA: valor bajo → barra llena (peligro)
+    // 120 → 0%, 0 → 100%
+    sFillEl.style.width=(((MAX_S-s)/MAX_S)*100).toFixed(2)+'%';
+    // Barra MQ-2 normal: valor alto → barra llena
     gFillEl.style.width=((g/1023)*100).toFixed(2)+'%';
+
     const sA=s<TUMB_S, gA=g>TUMB_G;
     sBadgeEl.className='sbadge '+(sA?'b-alr':'b-ok');
     sBadgeEl.innerHTML=`<span class="bdot"></span>${sA?'⚠ RUIDO DETECTADO':'SILENCIO'}`;
     gBadgeEl.className='sbadge '+(gA?'b-alr':'b-ok');
     gBadgeEl.innerHTML=`<span class="bdot"></span>${gA?'⚠ GAS DETECTADO':'NORMAL'}`;
+
     cSEl.classList.toggle('is-alert',sA);
     cGEl.classList.toggle('is-alert',gA);
+
     const msgs=[];
     if(sA) msgs.push(`• Ruido detectado — KY-037: ${s} (umbral &lt;${TUMB_S})`);
     if(gA) msgs.push(`• Gas/humo detectado — MQ-2: ${g} (umbral &gt;${TUMB_G})`);
@@ -359,30 +379,27 @@ function parseLine(line){
     line=line.trim();
     if(!line) return;
 
-    // Ignorar líneas de calentamiento MQ-2 silenciosamente
-    if(line.includes('calentando') || line.includes('calenta') ||
-       line.includes('warming')    || line.includes('preheat') ||
-       line.includes('Mira como')  || line.match(/t-\d+s/)) {
-        // Aún así extraer el valor de gas si viene en la línea
-        const mG2 = line.match(/MQ-?2\s*[=:]\s*(\d+)/i);
-        if(mG2){ update(lastS, parseInt(mG2[1])); }
+    // Ignorar líneas de calentamiento — solo extraer gas si viene en la línea
+    if(line.includes('calentando')||line.includes('calenta')||
+       line.includes('warming')||line.includes('preheat')||
+       line.includes('Mira como')||line.match(/t-\d+s/)){
+        const mG=line.match(/MQ-?2\s*[=:]\s*(\d+)/i);
+        if(mG) update(lastS, parseInt(mG[1]));
         return;
     }
 
-    if(line.startsWith('===')||line.startsWith('SENTINEL:')){
-        logMsg('ℹ '+line); return;
-    }
+    if(line.startsWith('===')) { logMsg('ℹ '+line); return; }
 
-    // Formato: S:1020 G:52
+    // Formato principal: S:XX G:XX
     const mS=line.match(/S:(\d+)/i), mG=line.match(/G:(\d+)/i);
     if(mS&&mG){ update(parseInt(mS[1]),parseInt(mG[1])); return; }
 
-    // Formato: t-Xs | S=XX | G=XX  o variantes con solo MQ-2
-    const mS2=line.match(/S\s*[=:]\s*(\d+)/i), mG3=line.match(/(?:G|MQ-?2)\s*[=:]\s*(\d+)/i);
-    if(mG3){ update(mS2?parseInt(mS2[1]):lastS, parseInt(mG3[1])); return; }
+    // Formato: t-Xs | S=XX | G=XX  o solo MQ-2=XX
+    const mS2=line.match(/S\s*[=:]\s*(\d+)/i), mG2=line.match(/(?:G|MQ-?2)\s*[=:]\s*(\d+)/i);
+    if(mG2){ update(mS2?parseInt(mS2[1]):lastS, parseInt(mG2[1])); return; }
 
-    // Formato: dos números separados por espacio
-    const m2=line.match(/^(\d{1,4})\s+(\d{1,4})/);
+    // Formato: dos números
+    const m2=line.match(/^(\d{1,3})\s+(\d{1,4})/);
     if(m2){ update(parseInt(m2[1]),parseInt(m2[2])); return; }
 
     logMsg('← '+line);
@@ -427,7 +444,7 @@ async function readLoop(){
 async function sendCmd(cmd){
     if(!writer){ logMsg('Sin Arduino','a'); return; }
     try { await writer.write(cmd+'\n'); logMsg('→ '+cmd,'c'); }
-    catch(e){ logMsg('Error envío: '+e.message,'a'); }
+    catch(e){ logMsg('Error: '+e.message,'a'); }
 }
 
 function toggleSim(){
@@ -441,29 +458,33 @@ function toggleSim(){
         $('btnSim').innerHTML='⏹ Detener';
         simdotEl.className='dot dot-sim'; simtxtEl.textContent='SIMULACIÓN: ACTIVA';
         logMsg('Simulación activa','c');
-        update(1020, 10);
+        // Normal: KY-037 ~115-120 (silencio), MQ-2 ~8-15
+        update(115+Math.round(Math.random()*5), 10);
         simInterval=setInterval(()=>{
-            update(Math.round(1018+Math.random()*5), Math.round(8+Math.random()*5));
+            update(115+Math.round(Math.random()*5), 8+Math.round(Math.random()*7));
         },500);
     }
 }
 
 function testSound(){
     if(!simActive){ logMsg('Activa el modo simulación primero','a'); return; }
-    update(985+Math.round(Math.random()*10), lastG);
-    logMsg('Test sonido: KY-037 → '+lastS,'c');
-    setTimeout(()=>{ if(simActive) update(1021, lastG); },3000);
+    // KY-037 baja a ~50-70 (ruido)
+    const val=50+Math.round(Math.random()*20);
+    update(val, lastG);
+    logMsg('Test sonido: KY-037 bajó a '+val+' → RUIDO','c');
+    setTimeout(()=>{ if(simActive) update(117, lastG); },3000);
 }
 
 function testGas(){
     if(!simActive){ logMsg('Activa el modo simulación primero','a'); return; }
-    update(lastS, 120+Math.round(Math.random()*80));
-    logMsg('Test gas: MQ-2 → '+lastG,'c');
+    const val=120+Math.round(Math.random()*80);
+    update(lastS, val);
+    logMsg('Test gas: MQ-2 subió a '+val,'c');
     setTimeout(()=>{ if(simActive) update(lastS, 10); },3000);
 }
 
 async function simArduino(){
-    if(writer){ await sendCmd('SIMULATE'); update(990,130); }
+    if(writer){ await sendCmd('SIMULATE'); update(50,130); }
     else { logMsg('Conecta Arduino primero','a'); }
 }
 
@@ -479,7 +500,7 @@ if(!('serial' in navigator)){
     $('btnConn').innerHTML='❌ Requiere Chrome/Edge';
     logMsg('Web Serial no disponible — usa Chrome o Edge','a');
 }
-logMsg('SENTINEL FLL v2.3 listo · KY-037 A0 | MQ-2 A1');
+logMsg('SENTINEL FLL v2.4 · KY-037: 120=silencio, baja=ruido | MQ-2: sube=gas');
 drawChartS(); drawChartG();
 
 })();
