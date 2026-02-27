@@ -358,13 +358,33 @@ function update(s,g){
 function parseLine(line){
     line=line.trim();
     if(!line) return;
+
+    // Ignorar líneas de calentamiento MQ-2 silenciosamente
+    if(line.includes('calentando') || line.includes('calenta') ||
+       line.includes('warming')    || line.includes('preheat') ||
+       line.includes('Mira como')  || line.match(/t-\d+s/)) {
+        // Aún así extraer el valor de gas si viene en la línea
+        const mG2 = line.match(/MQ-?2\s*[=:]\s*(\d+)/i);
+        if(mG2){ update(lastS, parseInt(mG2[1])); }
+        return;
+    }
+
     if(line.startsWith('===')||line.startsWith('SENTINEL:')){
         logMsg('ℹ '+line); return;
     }
+
+    // Formato: S:1020 G:52
     const mS=line.match(/S:(\d+)/i), mG=line.match(/G:(\d+)/i);
     if(mS&&mG){ update(parseInt(mS[1]),parseInt(mG[1])); return; }
+
+    // Formato: t-Xs | S=XX | G=XX  o variantes con solo MQ-2
+    const mS2=line.match(/S\s*[=:]\s*(\d+)/i), mG3=line.match(/(?:G|MQ-?2)\s*[=:]\s*(\d+)/i);
+    if(mG3){ update(mS2?parseInt(mS2[1]):lastS, parseInt(mG3[1])); return; }
+
+    // Formato: dos números separados por espacio
     const m2=line.match(/^(\d{1,4})\s+(\d{1,4})/);
     if(m2){ update(parseInt(m2[1]),parseInt(m2[2])); return; }
+
     logMsg('← '+line);
 }
 
