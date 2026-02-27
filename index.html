@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SENTINEL FLL - Sistema Arqueológico</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;700;800&display=swap');
+        * { margin:0; padding:0; box-sizing:border-box; }
+        :root {
+            --cyan:#00e5ff; --cyan-dim:#00bcd4; --orange:#ff6d00;
+            --red:#ff1744; --green:#00e676; --bg:#050d1a;
+            --card:rgba(0,229,255,0.04); --border:rgba(0,229,255,0.15);
+            --mono:'Share Tech Mono',monospace; --ui:'Exo 2',sans-serif;
+        }
+        body {
+            background:var(--bg);
+            background-image:
+                radial-gradient(ellipse 80% 50% at 50% -10%, rgba(0,188,212,0.1) 0%, transparent 70%),
+                repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(0,229,255,0.03) 40px),
+                repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(0,229,255,0.03) 40px);
+            color:#c8e6ff; min-height:100vh; padding:20px; font-family:var(--ui);
+        }
+        .wrap { max-width:1080px; margin:0 auto; }
+
+        /* HEADER */
+        header { text-align:center; padding:24px 0 16px; }
+        .badge { display:inline-block; background:rgba(0,229,255,0.07); border:1px solid var(--border); border-radius:4px; padding:3px 14px; font-family:var(--mono); font-size:0.72em; color:var(--cyan-dim); letter-spacing:3px; margin-bottom:10px; }
+        h1 { font-size:2.2em; font-weight:800; color:#fff; }
+        h1 span { color:var(--cyan); }
+        .sub { color:rgba(200,230,255,0.45); font-size:0.9em; margin-top:6px; font-weight:300; letter-spacing:1px; }
+        .hr { height:1px; background:linear-gradient(90deg,transparent,var(--cyan-dim),transparent); margin:18px 0; opacity:0.3; }
+
+        /* STATUS */
+        .statusbar { display:flex; flex-wrap:wrap; gap:16px; align-items:center; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px 18px; margin-bottom:20px; font-family:var(--mono); font-size:0.82em; }
+        .si { display:flex; align-items:center; gap:8px; }
+        .dot { width:9px; height:9px; border-radius:50%; background:#333; transition:all .3s; flex-shrink:0; }
+        .dot-on  { background:var(--green); box-shadow:0 0 7px var(--green); }
+        .dot-off { background:var(--red); }
+        .dot-sim { background:var(--orange); box-shadow:0 0 7px var(--orange); animation:blink 1s infinite; }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.4} }
+        .sep { color:rgba(0,229,255,0.15); }
+
+        /* GRID */
+        .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }
+        @media(max-width:660px){ .grid2{grid-template-columns:1fr;} .controls{grid-template-columns:1fr 1fr !important;} }
+
+        /* SENSOR CARD */
+        .scard { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:20px; position:relative; overflow:hidden; transition:border-color .3s; }
+        .scard::after { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:var(--accent,var(--cyan)); opacity:.5; }
+        .scard.gc { --accent:var(--orange); }
+        .scard.is-alert { border-color:var(--red) !important; }
+        .scard.is-alert::after { background:var(--red); opacity:1; }
+        .stitle { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+        .sicon { width:34px; height:34px; border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:1em; background:rgba(0,229,255,0.08); }
+        .gc .sicon { background:rgba(255,109,0,0.08); }
+        .stitle h2 { font-size:0.75em; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:var(--accent,var(--cyan)); font-family:var(--mono); }
+        .vrow { display:flex; align-items:baseline; gap:6px; margin-bottom:16px; }
+        .vbig { font-family:var(--mono); font-size:3em; font-weight:400; color:#fff; line-height:1; min-width:4ch; transition:color .3s; }
+        .vbig.warn { color:var(--orange); }
+        .vbig.alrt { color:var(--red); }
+        .vunit { font-family:var(--mono); font-size:0.85em; color:rgba(200,230,255,0.35); }
+
+        /* METER */
+        .mlabels { display:flex; justify-content:space-between; font-family:var(--mono); font-size:0.7em; color:rgba(200,230,255,0.35); margin-bottom:5px; }
+        .mlabels .thr { color:rgba(255,255,255,0.5); }
+        .mtrack { height:11px; background:rgba(255,255,255,0.06); border-radius:6px; overflow:visible; position:relative; margin-bottom:12px; }
+        .mfill { height:100%; border-radius:6px; transition:width .4s cubic-bezier(.4,0,.2,1); position:absolute; top:0; left:0; }
+        .mfill-s { background:linear-gradient(90deg,#ff1744 0%,#ff9800 40%,#00e5ff 100%); }
+        .mfill-g { background:linear-gradient(90deg,#00e676 0%,#ff6d00 55%,#ff1744 100%); }
+        .mline { position:absolute; top:-3px; bottom:-3px; width:2px; background:rgba(255,255,255,0.5); border-radius:2px; }
+
+        /* BADGE */
+        .sbadge { display:inline-flex; align-items:center; gap:6px; font-family:var(--mono); font-size:0.75em; letter-spacing:1.5px; padding:4px 11px; border-radius:5px; border:1px solid; transition:all .3s; }
+        .b-ok  { color:var(--green); border-color:rgba(0,230,118,.3); background:rgba(0,230,118,.05); }
+        .b-alr { color:var(--red);   border-color:rgba(255,23,68,.4); background:rgba(255,23,68,.07); animation:pa 1s infinite; }
+        @keyframes pa { 0%,100%{opacity:1} 50%{opacity:.65} }
+        .bdot { width:6px; height:6px; border-radius:50%; background:currentColor; }
+
+        /* ALERT PANEL */
+        .apanel { display:none; background:rgba(255,23,68,.07); border:1px solid rgba(255,23,68,.35); border-radius:10px; padding:14px 18px; margin-bottom:14px; font-family:var(--mono); animation:af 1.5s infinite; }
+        .apanel.on { display:block; }
+        @keyframes af { 0%,100%{background:rgba(255,23,68,.07)} 50%{background:rgba(255,23,68,.14)} }
+        .apanel h3 { color:var(--red); font-size:0.85em; letter-spacing:2px; margin-bottom:6px; }
+        .apanel p  { color:rgba(255,100,120,.8); font-size:0.8em; line-height:1.8; }
+
+        /* CHARTS — 2 separate */
+        .charts-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }
+        @media(max-width:660px){ .charts-grid{grid-template-columns:1fr;} }
+        .chartcard { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:18px; }
+        .chartcard.cc { border-color:rgba(0,229,255,0.2); }
+        .chartcard.cg { border-color:rgba(255,109,0,0.2); }
+        .chartcard h3 { font-family:var(--mono); font-size:0.75em; letter-spacing:2px; text-transform:uppercase; margin-bottom:14px; }
+        .chartcard.cc h3 { color:var(--cyan-dim); }
+        .chartcard.cg h3 { color:var(--orange); }
+        .chartwrap { height:180px; position:relative; }
+
+        /* CONTROLS */
+        .controls { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px; margin-bottom:14px; }
+        button { padding:11px 14px; border:1px solid transparent; border-radius:7px; font-size:0.83em; font-weight:600; cursor:pointer; transition:all .2s; display:flex; align-items:center; justify-content:center; gap:8px; font-family:var(--ui); letter-spacing:.4px; }
+        .bc { background:rgba(0,230,118,.08); border-color:rgba(0,230,118,.25); color:var(--green); }
+        .bs { background:rgba(255,109,0,.08); border-color:rgba(255,109,0,.25); color:var(--orange); }
+        .bt { background:rgba(0,229,255,.06); border-color:rgba(0,229,255,.2); color:var(--cyan); }
+        .bg { background:rgba(255,109,0,.06); border-color:rgba(255,109,0,.2); color:#ffab40; }
+        .ba { background:rgba(186,104,200,.08); border-color:rgba(186,104,200,.25); color:#ce93d8; }
+        button:hover:not(:disabled) { transform:translateY(-2px); filter:brightness(1.2); }
+        button:disabled { opacity:.35; cursor:not-allowed; transform:none; }
+
+        /* CODE BOX */
+        .codebox { background:rgba(0,0,0,.4); border:1px solid var(--border); border-radius:10px; padding:18px; margin-bottom:14px; }
+        .codebox-hdr { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+        .codebox h3 { font-family:var(--mono); font-size:0.75em; letter-spacing:2px; color:var(--cyan-dim); text-transform:uppercase; }
+        .codebox pre { font-family:var(--mono); font-size:0.78em; color:#a5d6a7; line-height:1.7; overflow-x:auto; white-space:pre; max-height:300px; overflow-y:auto; background:rgba(0,0,0,.3); padding:14px; border-radius:6px; }
+        .codebox pre::-webkit-scrollbar { width:4px; height:4px; }
+        .codebox pre::-webkit-scrollbar-thumb { background:rgba(0,229,255,.2); border-radius:2px; }
+        .btn-copy { background:rgba(0,229,255,.07); border-color:rgba(0,229,255,.2); color:var(--cyan); padding:7px 14px; font-size:0.78em; }
+
+        /* LOG */
+        .logcard { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px; }
+        .logh { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+        .logh h3 { font-family:var(--mono); font-size:0.75em; letter-spacing:2px; color:var(--cyan-dim); text-transform:uppercase; }
+        .lbtn { background:rgba(255,255,255,.04); border-color:rgba(255,255,255,.1); color:rgba(200,230,255,.45); padding:5px 11px; font-size:0.76em; }
+        .logbody { height:150px; overflow-y:auto; font-family:var(--mono); font-size:0.78em; background:rgba(0,0,0,.3); border-radius:6px; padding:10px; }
+        .logbody::-webkit-scrollbar { width:3px; }
+        .logbody::-webkit-scrollbar-thumb { background:rgba(0,229,255,.15); border-radius:2px; }
+        .le { display:flex; gap:10px; padding:3px 0; border-bottom:1px solid rgba(255,255,255,.04); line-height:1.4; }
+        .lt { color:rgba(0,229,255,.4); flex-shrink:0; }
+        .ld { color:rgba(100,220,140,.9); }
+        .la { color:var(--red); font-weight:bold; }
+        .lc { color:var(--orange); }
+    </style>
+</head>
+<body>
+<div class="wrap">
+
+    <header>
+        <div class="badge">SISTEMA DE VIGILANCIA v2.2</div>
+        <h1>SENTINEL <span>FLL</span></h1>
+        <p class="sub">Protección inteligente de sitios arqueológicos · KY-037 (A0) + MQ-2 (A1)</p>
+    </header>
+    <div class="hr"></div>
+
+    <div class="statusbar">
+        <div class="si"><span class="dot dot-off" id="sdot"></span><span id="stxt">ARDUINO DESCONECTADO</span></div>
+        <span class="sep">|</span>
+        <div class="si"><span class="dot" id="simdot"></span><span id="simtxt">SIMULACIÓN: INACTIVA</span></div>
+        <span class="sep">|</span>
+        <div class="si">ALERTAS: <span id="acnt" style="color:var(--red);margin-left:6px">0</span></div>
+    </div>
+
+    <!-- SENSOR CARDS -->
+    <div class="grid2">
+        <div class="scard" id="cS">
+            <div class="stitle">
+                <div class="sicon">🎤</div>
+                <h2>Sonido · KY-037 · A0</h2>
+            </div>
+            <div class="vrow">
+                <div class="vbig" id="sVal">—</div>
+                <div class="vunit">/ 1023</div>
+            </div>
+            <!-- Sonido: barra invertida — llena = silencio, vacía = ruido -->
+            <div class="mlabels">
+                <span>ruido</span>
+                <span class="thr">⚠ &lt;1015</span>
+                <span>silencio</span>
+            </div>
+            <div class="mtrack">
+                <div class="mfill mfill-s" id="sFill" style="width:0%"></div>
+                <div class="mline" style="left:99.2%"></div>
+            </div>
+            <div class="sbadge b-ok" id="sBadge"><span class="bdot"></span>ESPERANDO</div>
+        </div>
+
+        <div class="scard gc" id="cG">
+            <div class="stitle">
+                <div class="sicon">💨</div>
+                <h2>Gas/Humo · MQ-2 · A1</h2>
+            </div>
+            <div class="vrow">
+                <div class="vbig" id="gVal">—</div>
+                <div class="vunit">/ 1023</div>
+            </div>
+            <div class="mlabels">
+                <span>0</span>
+                <span class="thr">⚠ &gt;100</span>
+                <span>1023</span>
+            </div>
+            <div class="mtrack">
+                <div class="mfill mfill-g" id="gFill" style="width:0%"></div>
+                <div class="mline" style="left:9.77%"></div>
+            </div>
+            <div class="sbadge b-ok" id="gBadge"><span class="bdot"></span>ESPERANDO</div>
+        </div>
+    </div>
+
+    <!-- ALERT PANEL -->
+    <div class="apanel" id="apanel">
+        <h3>🚨 ALERTA DE SEGURIDAD ARQUEOLÓGICA</h3>
+        <p id="adetails"></p>
+    </div>
+
+    <!-- 2 SEPARATE CHARTS -->
+    <div class="charts-grid">
+        <div class="chartcard cc">
+            <h3>📊 Historial Sonido (KY-037)</h3>
+            <div class="chartwrap"><canvas id="chartS"></canvas></div>
+        </div>
+        <div class="chartcard cg">
+            <h3>📊 Historial Gas (MQ-2)</h3>
+            <div class="chartwrap"><canvas id="chartG"></canvas></div>
+        </div>
+    </div>
+
+    <!-- CONTROLS -->
+    <div class="controls">
+        <button class="bc" id="btnConn">🔗 Conectar Arduino</button>
+        <button class="bs" id="btnSim">🎮 Modo Simulación</button>
+        <button class="bt" id="btnTS">🔊 Test Sonido</button>
+        <button class="bg" id="btnTG">💨 Test Gas</button>
+        <button class="ba" id="btnArd">⚡ Simular Arduino</button>
+    </div>
+
+    <!-- ARDUINO CODE -->
+    <div class="codebox">
+        <div class="codebox-hdr">
+            <h3>⚙ Código Arduino · KY-037 (A0) + MQ-2 (A1)</h3>
+            <button class="btn-copy" id="btnCopy">📋 Copiar</button>
+        </div>
+        <pre id="arduinoCode">// =====================================================
+// SENTINEL FLL — Arduino UNO
+// KY-037 → A0  |  MQ-2 → A1  |  LED → D13
+// Baud: 9600
+// KY-037: silencio=~1020, ruido baja de 1015
+// MQ-2:   gas detectado cuando sube de 18
+// =====================================================
+
+#define PIN_SONIDO    A0
+#define PIN_GAS       A1
+#define PIN_LED       13
+#define UMBRAL_SONIDO 1015  // KY-037: alerta si BAJA
+#define UMBRAL_GAS    100   // MQ-2: baseline ~80, alerta si SUBE
+
+void setup() {
+  Serial.begin(9600);
+  delay(500);
+  pinMode(PIN_LED, OUTPUT);
+  for (int i = 0; i < 3; i++) {
+    digitalWrite(PIN_LED, HIGH); delay(200);
+    digitalWrite(PIN_LED, LOW);  delay(200);
+  }
+  Serial.println("=== SENTINEL FLL LISTO ===");
+}
+
+void loop() {
+  if (Serial.available() > 0) {
+    String cmd = Serial.readStringUntil('\n');
+    cmd.trim();
+    if (cmd.equalsIgnoreCase("SIMULATE")) {
+      Serial.println("S:990 G:25 | ALERTA SONIDO+GAS");
+      parpadear(8, 80);
+      return;
+    }
+  }
+  int sonido = analogRead(PIN_SONIDO);
+  int gas    = analogRead(PIN_GAS);
+  bool alertaS = sonido < UMBRAL_SONIDO;
+  bool alertaG = gas    > UMBRAL_GAS;
+
+  Serial.print("S:"); Serial.print(sonido);
+  Serial.print(" G:"); Serial.print(gas);
+  Serial.print(" | ");
+  if      (alertaS && alertaG) Serial.println("ALERTA SONIDO+GAS");
+  else if (alertaS)            Serial.println("ALERTA SONIDO");
+  else if (alertaG)            Serial.println("ALERTA GAS");
+  else                         Serial.println("OK");
+
+  if (alertaS || alertaG) { parpadear(2, 100); }
+  else { digitalWrite(PIN_LED, LOW); }
+  delay(500);
+}
+
+void parpadear(int veces, int ms) {
+  for (int i = 0; i < veces; i++) {
+    digitalWrite(PIN_LED, HIGH); delay(ms);
+    digitalWrite(PIN_LED, LOW);  delay(ms);
+  }
+}</pre>
+    </div>
+
+    <!-- LOG -->
+    <div class="logcard">
+        <div class="logh">
+            <h3>📝 Registro de Eventos</h3>
+            <button class="lbtn" id="btnClr">🗑 Limpiar</button>
+        </div>
+        <div class="logbody" id="log"></div>
+    </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+const $ = id => document.getElementById(id);
+const sValEl=$('sVal'), gValEl=$('gVal');
+const sFillEl=$('sFill'), gFillEl=$('gFill');
+const sBadgeEl=$('sBadge'), gBadgeEl=$('gBadge');
+const cSEl=$('cS'), cGEl=$('cG');
+const sdotEl=$('sdot'), stxtEl=$('stxt');
+const simdotEl=$('simdot'), simtxtEl=$('simtxt');
+const apanelEl=$('apanel'), adetEl=$('adetails');
+const acntEl=$('acnt'), logEl=$('log');
+
+let port=null, reader=null, writer=null;
+let simActive=false, simInterval=null, alertTmo=null;
+let alertCount=0, lastS=1023, lastG=0;
+
+const MAX_PTS=40;
+const labH=[], sH=[], gH=[];
+
+// ── THRESHOLDS ───────────────────────────────────────────────────
+const TUMB_S = 1015;   // KY-037: alerta si BAJA de este valor
+const TUMB_G = 100;    // MQ-2: baseline ~80, alerta si SUBE de 100
+
+// ── LOG ──────────────────────────────────────────────────────────
+function pad(n){ return String(n).padStart(2,'0'); }
+function log(msg, type='d'){
+    const now=new Date();
+    const t=`[${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}]`;
+    const e=document.createElement('div'); e.className='le';
+    const cls=type==='a'?'la':type==='c'?'lc':'ld';
+    e.innerHTML=`<span class="lt">${t}</span><span class="${cls}">${msg}</span>`;
+    logEl.appendChild(e);
+    logEl.scrollTop=logEl.scrollHeight;
+}
+
+// ── CANVAS CHARTS ────────────────────────────────────────────────
+const ctxS=document.getElementById('chartS').getContext('2d');
+const ctxG=document.getElementById('chartG').getContext('2d');
+
+function resizeCanvases(){
+    ['chartS','chartG'].forEach(id=>{
+        const c=document.getElementById(id);
+        c.width=c.parentElement.clientWidth;
+        c.height=c.parentElement.clientHeight;
+    });
+}
+window.addEventListener('resize',()=>{ resizeCanvases(); drawChartS(); drawChartG(); });
+resizeCanvases();
+
+function drawCanvas(ctx, data, color, fillColor, thrVal, thrLabel, thrDir, yMin, yMax){
+    const W=ctx.canvas.width, H=ctx.canvas.height;
+    ctx.clearRect(0,0,W,H);
+    const PL=44, PR=14, PT=16, PB=30;
+    const cW=W-PL-PR, cH=H-PT-PB;
+
+    // Y range
+    const range = yMax - yMin;
+
+    // Grid lines
+    const steps = 4;
+    for(let i=0; i<=steps; i++){
+        const v = yMin + (range/steps)*i;
+        const y = PT + cH - ((v-yMin)/range)*cH;
+        ctx.strokeStyle='rgba(255,255,255,0.05)';
+        ctx.lineWidth=1;
+        ctx.beginPath(); ctx.moveTo(PL,y); ctx.lineTo(PL+cW,y); ctx.stroke();
+        ctx.fillStyle='rgba(200,230,255,0.25)';
+        ctx.font='10px Share Tech Mono,monospace'; ctx.textAlign='right';
+        ctx.fillText(Math.round(v), PL-4, y+4);
+    }
+
+    // Threshold line
+    const thrY = PT + cH - ((thrVal-yMin)/range)*cH;
+    if(thrY >= PT && thrY <= PT+cH){
+        ctx.save();
+        ctx.strokeStyle='rgba(255,80,80,0.6)'; ctx.lineWidth=1.5; ctx.setLineDash([5,5]);
+        ctx.beginPath(); ctx.moveTo(PL,thrY); ctx.lineTo(PL+cW,thrY); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle='rgba(255,80,80,0.8)';
+        ctx.font='10px Share Tech Mono,monospace'; ctx.textAlign='left';
+        ctx.fillText(thrLabel, PL+4, thrY-3);
+        ctx.restore();
+    }
+
+    if(data.length < 2){
+        ctx.fillStyle='rgba(200,230,255,0.12)'; ctx.textAlign='center';
+        ctx.font='12px Share Tech Mono,monospace';
+        ctx.fillText('— esperando datos —', W/2, H/2);
+        return;
+    }
+
+    const n=data.length;
+    const xStep=cW/(MAX_PTS-1);
+
+    // Fill area
+    ctx.beginPath();
+    ctx.moveTo(PL+(MAX_PTS-n)*xStep, PT+cH);
+    for(let i=0;i<n;i++){
+        const x=PL+(MAX_PTS-n+i)*xStep;
+        const y=PT+cH-(Math.max(0,Math.min(1,(data[i]-yMin)/range)))*cH;
+        ctx.lineTo(x,y);
+    }
+    ctx.lineTo(PL+(MAX_PTS-1)*xStep, PT+cH);
+    ctx.closePath(); ctx.fillStyle=fillColor; ctx.fill();
+
+    // Line
+    ctx.beginPath();
+    for(let i=0;i<n;i++){
+        const x=PL+(MAX_PTS-n+i)*xStep;
+        const y=PT+cH-(Math.max(0,Math.min(1,(data[i]-yMin)/range)))*cH;
+        i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.strokeStyle=color; ctx.lineWidth=2.5; ctx.lineJoin='round'; ctx.stroke();
+
+    // Last dot
+    const lx=PL+(MAX_PTS-1)*xStep;
+    const ly=PT+cH-(Math.max(0,Math.min(1,(data[n-1]-yMin)/range)))*cH;
+    ctx.beginPath(); ctx.arc(lx,ly,4,0,Math.PI*2);
+    ctx.fillStyle=color; ctx.fill();
+
+    // X labels (last 5)
+    const step=Math.max(1,Math.ceil(labH.length/5));
+    ctx.fillStyle='rgba(200,230,255,0.2)';
+    ctx.font='9px Share Tech Mono,monospace'; ctx.textAlign='center';
+    for(let i=0;i<labH.length;i+=step){
+        const x=PL+(MAX_PTS-labH.length+i)*xStep;
+        ctx.fillText(labH[i], x, H-PB+13);
+    }
+}
+
+function drawChartS(){
+    // KY-037: Y range 900-1023, threshold at 1015 (alerta si BAJA)
+    drawCanvas(
+        ctxS, sH,
+        '#00e5ff', 'rgba(0,229,255,0.07)',
+        TUMB_S, '⚠ 1015', 'below',
+        900, 1023
+    );
+}
+
+function drawChartG(){
+    // MQ-2: Y range 0-100 (ajustado a escala real), threshold at 18 (alerta si SUBE)
+    const maxG = Math.max(100, ...gH) * 1.2;
+    drawCanvas(
+        ctxG, gH,
+        '#ff6d00', 'rgba(255,109,0,0.07)',
+        TUMB_G, '⚠ 100', 'above',
+        0, maxG
+    );
+}
+
+function pushChart(s,g){
+    const now=new Date();
+    labH.push(`${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`);
+    sH.push(s); gH.push(g);
+    if(labH.length>MAX_PTS){ labH.shift(); sH.shift(); gH.shift(); }
+    drawChartS();
+    drawChartG();
+}
+
+// ── CORE UPDATE ──────────────────────────────────────────────────
+function update(s,g){
+    s=Math.max(0,Math.min(1023,Math.round(s)));
+    g=Math.max(0,Math.min(1023,Math.round(g)));
+    lastS=s; lastG=g;
+
+    // Numbers
+    sValEl.textContent=s;
+    gValEl.textContent=g;
+
+    // KY-037 inverso: alto=silencio, bajo=ruido
+    sValEl.className='vbig'+(s<TUMB_S?' alrt':s<1018?' warn':'');
+    gValEl.className='vbig'+(g>TUMB_G?' alrt':g>(TUMB_G-5)?' warn':'');
+
+    // Meter bars
+    // KY-037: barra llena = silencio (valor alto), vacía = ruido (valor bajo)
+    sFillEl.style.width=((s/1023)*100).toFixed(2)+'%';
+    // MQ-2: barra llena = gas alto
+    gFillEl.style.width=((g/1023)*100).toFixed(2)+'%';
+
+    // Badges
+    const sA=s<TUMB_S, gA=g>TUMB_G;
+    sBadgeEl.className='sbadge '+(sA?'b-alr':'b-ok');
+    sBadgeEl.innerHTML=`<span class="bdot"></span>${sA?'⚠ RUIDO DETECTADO':'SILENCIO'}`;
+    gBadgeEl.className='sbadge '+(gA?'b-alr':'b-ok');
+    gBadgeEl.innerHTML=`<span class="bdot"></span>${gA?'⚠ GAS DETECTADO':'NORMAL'}`;
+
+    // Card highlight
+    cSEl.classList.toggle('is-alert',sA);
+    cGEl.classList.toggle('is-alert',gA);
+
+    // Alert panel
+    const msgs=[];
+    if(sA) msgs.push(`• Ruido detectado — KY-037: ${s} (umbral &lt;${TUMB_S})`);
+    if(gA) msgs.push(`• Gas/humo detectado — MQ-2: ${g} (umbral &gt;${TUMB_G})`);
+    if(msgs.length){
+        apanelEl.classList.add('on');
+        adetEl.innerHTML=msgs.join('<br>');
+        alertCount++; acntEl.textContent=alertCount;
+        log('ALERTA: '+msgs.map(m=>m.replace('• ','')).join(' | '),'a');
+        if(alertTmo) clearTimeout(alertTmo);
+        alertTmo=setTimeout(()=>{
+            if(lastS>=TUMB_S && lastG<=TUMB_G) apanelEl.classList.remove('on');
+        },5000);
+    } else {
+        apanelEl.classList.remove('on');
+    }
+
+    pushChart(s,g);
+}
+
+// ── PARSE ARDUINO ────────────────────────────────────────────────
+function parseLine(line){
+    line=line.trim();
+    if(!line) return;
+    if(line.startsWith('===')||line.startsWith('---')||
+       line.startsWith('SENTINEL:')||line.startsWith('Formato:')){
+        log('ℹ '+line); return;
+    }
+    const mS=line.match(/S:(\d+)/i);
+    const mG=line.match(/G:(\d+)/i);
+    if(mS&&mG){ update(parseInt(mS[1]),parseInt(mG[1])); return; }
+    const m2=line.match(/^(\d{1,4})\s+(\d{1,4})/);
+    if(m2){ update(parseInt(m2[1]),parseInt(m2[2])); return; }
+    log('← '+line);
+}
+
+// ── SERIAL ───────────────────────────────────────────────────────
+async function connectArduino(){
+    if(!('serial' in navigator)){ log('Requiere Chrome o Edge','a'); return; }
+    try {
+        port=await navigator.serial.requestPort();
+        await port.open({baudRate:9600});
+        const enc=new TextEncoderStream();
+        enc.readable.pipeTo(port.writable);
+        writer=enc.writable.getWriter();
+        const dec=new TextDecoderStream();
+        port.readable.pipeTo(dec.writable);
+        reader=dec.readable.getReader();
+        sdotEl.className='dot dot-on';
+        stxtEl.textContent='ARDUINO CONECTADO';
+        log('Conectado — esperando datos...','c');
+        readLoop();
+    } catch(e){ log('Error: '+e.message,'a'); }
+}
+
+async function readLoop(){
+    let buf='';
+    try {
+        while(true){
+            const {value,done}=await reader.read();
+            if(done) break;
+            buf+=value;
+            const lines=buf.split('\n');
+            buf=lines.pop();
+            for(const l of lines) parseLine(l);
+        }
+    } catch(e){
+        log('Desconectado: '+e.message,'a');
+        sdotEl.className='dot dot-off';
+        stxtEl.textContent='ARDUINO DESCONECTADO';
+    }
+}
+
+async function sendCmd(cmd){
+    if(!writer){ log('Sin Arduino','a'); return; }
+    try { await writer.write(cmd+'\n'); log('→ '+cmd,'c'); }
+    catch(e){ log('Error envío: '+e.message,'a'); }
+}
+
+// ── SIMULATION — valores reales de tus sensores ──────────────────
+function toggleSim(){
+    if(simActive){
+        clearInterval(simInterval); simActive=false;
+        $('btnSim').innerHTML='🎮 Modo Simulación';
+        simdotEl.className='dot'; simtxtEl.textContent='SIMULACIÓN: INACTIVA';
+        log('Simulación detenida','c');
+    } else {
+        simActive=true;
+        $('btnSim').innerHTML='⏹ Detener';
+        simdotEl.className='dot dot-sim'; simtxtEl.textContent='SIMULACIÓN: ACTIVA';
+        log('Simulación activa — valores reales KY-037/MQ-2','c');
+        update(1020, 10);
+        simInterval=setInterval(()=>{
+            // KY-037: normal 1018-1023, ruido baja a 990-1014
+            const s=Math.round(1018+Math.random()*5);
+            // MQ-2: normal 8-12
+            const g=Math.round(8+Math.random()*5);
+            update(s,g);
+        },500);
+    }
+}
+
+function testSound(){
+    if(!simActive){ log('Activa el modo simulación primero','a'); return; }
+    // KY-037 detecta ruido: valor baja a ~990
+    update(985+Math.round(Math.random()*10), lastG);
+    log('Test: Ruido detectado KY-037 → valor bajó a '+lastS,'c');
+    setTimeout(()=>{ if(simActive) update(1021, lastG); },3000);
+}
+
+function testGas(){
+    if(!simActive){ log('Activa el modo simulación primero','a'); return; }
+    // MQ-2 detecta gas: valor sube a 20+
+    update(lastS, 20+Math.round(Math.random()*30));
+    log('Test: Gas detectado MQ-2 → '+lastG,'c');
+    setTimeout(()=>{ if(simActive) update(lastS, 10); },3000);
+}
+
+async function simArduino(){
+    if(writer){ await sendCmd('SIMULATE'); update(990,25); }
+    else { log('Conecta Arduino primero','a'); }
+}
+
+// ── COPY CODE ────────────────────────────────────────────────────
+$('btnCopy').addEventListener('click',()=>{
+    navigator.clipboard.writeText($('arduinoCode').textContent).then(()=>{
+        $('btnCopy').innerHTML='✅ Copiado!';
+        setTimeout(()=>{ $('btnCopy').innerHTML='📋 Copiar'; },2500);
+    });
+});
+
+// ── EVENTS ───────────────────────────────────────────────────────
+$('btnConn').addEventListener('click', connectArduino);
+$('btnSim').addEventListener('click',  toggleSim);
+$('btnTS').addEventListener('click',   testSound);
+$('btnTG').addEventListener('click',   testGas);
+$('btnArd').addEventListener('click',  simArduino);
+$('btnClr').addEventListener('click',  ()=>{ logEl.innerHTML=''; log('Limpiado','c'); });
+
+// ── INIT ─────────────────────────────────────────────────────────
+if(!('serial' in navigator)){
+    $('btnConn').disabled=true;
+    $('btnConn').innerHTML='❌ Requiere Chrome/Edge';
+    log('Web Serial no disponible','a');
+}
+log('SENTINEL FLL v2.2 iniciado');
+log('KY-037: silencio=~1020, alerta si baja de 1015');
+log('MQ-2: normal=8-12, alerta si sube de 18');
+drawChartS(); drawChartG();
+
+})();
+</script>
+</body>
+</html>
